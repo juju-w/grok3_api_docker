@@ -2,7 +2,7 @@
 # 使用官方 Go 镜像作为构建环境
 # 选择一个具体的版本，例如 1.22 (根据你的 go.mod 调整)
 # 使用 alpine 版本以减小基础镜像大小
-FROM golang:1.22-alpine AS builder
+FROM docker.1ms.run/golang:1.24-alpine AS builder
 
 # 设置工作目录
 WORKDIR /app
@@ -14,7 +14,7 @@ COPY go.mod go.sum ./
 # 使用 -buildvcs=false 避免 Git 相关错误（如果你的环境没有 Git）
 # 在某些网络环境下可能需要设置代理
 # RUN export GOPROXY=https://goproxy.cn,direct && go mod download -buildvcs=false
-RUN go mod download -buildvcs=false
+RUN go mod tidy
 
 # 拷贝所有源代码
 COPY . .
@@ -28,7 +28,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o /app/grok3-adapter mai
 
 # ---- Stage 2: Runtime ----
 # 使用一个非常小的基础镜像，例如 alpine
-FROM alpine:latest
+FROM docker.1ms.run/alpine:latest
 
 # 设置工作目录
 WORKDIR /app

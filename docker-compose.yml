@@ -45,14 +45,14 @@ services:
       # 注意：需要启动 shell 来处理条件逻辑，或者依赖 Go 程序处理空字符串
       # 为了简单起见，我们直接传递，Go 程序需要能正确处理空字符串参数（对于可选 flag 通常可以）
       # 如果 TEXT_BEFORE_PROMPT 为空，则使用 Go 代码默认值。如果设置了，则传递。
-      ${TEXT_BEFORE_PROMPT:+-textBeforePrompt=} # Compose 不支持直接这样条件插入，需要包装或依赖 Go 处理空值
+      #${TEXT_BEFORE_PROMPT:+-textBeforePrompt=} # Compose 不支持直接这样条件插入，需要包装或依赖 Go 处理空值
       # 传递所有可能需要的参数，让 Go 程序处理
       - "-textBeforePrompt=${TEXT_BEFORE_PROMPT}" # 如果环境变量为空，传递空字符串
       - "-textAfterPrompt=${TEXT_AFTER_PROMPT}"   # 如果环境变量为空，传递空字符串
       - "-httpProxy=${HTTP_PROXY}"             # 如果环境变量为空，传递空字符串
       - "-cookieFile=${COOKIE_FILE_PATH}"      # 如果环境变量为空，传递空字符串
 
-    volumes:
+    #volumes:
       # 如果你使用 cookie 文件，需要将本地文件挂载到容器中
       # 示例：将项目目录下的 cookies.txt 挂载到容器的 /app/cookies.txt
       # 需要在 .env 文件中设置 COOKIE_FILE_PATH=/app/cookies.txt
