@@ -1,0 +1,64 @@
+version: '3.8' # 使用较新的 Compose 文件格式版本
+
+services:
+  grok3_adapter:
+    build:
+      context: . # Dockerfile 所在的目录
+      dockerfile: Dockerfile # 使用的 Dockerfile 文件名
+      args:
+        PORT: ${CONTAINER_PORT:-8180} # 构建时可以传递端口参数
+    container_name: grok3_adapter_service # 给容器一个固定的名字
+    ports:
+      - "${HOST_PORT:-8180}:${CONTAINER_PORT:-8180}" # 映射宿主机端口到容器端口
+    environment:
+      # --- 必填参数 ---
+      # Go 代码会优先读取环境变量 GROK3_AUTH_TOKEN 和 GROK3_COOKIE
+      - GROK3_AUTH_TOKEN=${GROK3_AUTH_TOKEN:?Grok Auth Token is required. Set it in .env file}
+      - GROK3_COOKIE=${GROK3_COOKIE} # Grok Cookie (JSON string or single cookie string). Set it in .env file. Can be empty if using COOKIE_FILE_PATH.
+
+      # --- 可选参数 (覆盖 Dockerfile CMD 或 Go 代码默认值) ---
+      # 这些环境变量本身不会被 Go flags 直接读取，但我们用它们来构建 command
+      - CONTAINER_PORT=${CONTAINER_PORT:-8180}
+      - TEXT_BEFORE_PROMPT=${TEXT_BEFORE_PROMPT} # 如果不设置，则使用 Go 代码中的默认值
+      - TEXT_AFTER_PROMPT=${TEXT_AFTER_PROMPT}   # 如果不设置，则为空
+      - KEEP_CHAT=${KEEP_CHAT:-false}
+      - IGNORE_THINKING=${IGNORE_THINKING:-false}
+      - CHARS_LIMIT=${CHARS_LIMIT:-50000}
+      - HTTP_PROXY=${HTTP_PROXY} # 例如 http://proxy.example.com:8080 or socks5://user:pass@host:port
+      - COOKIE_FILE_PATH=${COOKIE_FILE_PATH} # 例如 /app/cookies.txt
+
+    # 使用 command 来覆盖 Dockerfile 中的 CMD，并动态构建启动参数
+    # 这样可以灵活地使用环境变量来控制 Go 应用的 flags
+    command:
+      - "-port=${CONTAINER_PORT:-8180}"
+      # Token 和 Cookie 虽然 Go 代码能读环境变量，但为确保覆盖或明确性，可以通过 flag 传递
+      - "-token=${GROK3_AUTH_TOKEN}"
+      - "-cookie=${GROK3_COOKIE}"
+      # 根据环境变量是否存在来决定是否添加对应的 flag
+      # 使用 sh -c 来进行条件判断和参数拼接更可靠
+      # 但更简单的方式是直接传递，让 Go flag 的默认值或空值处理生效
+      # 对于布尔值，传递 'true' 或 'false'
+      - "-keepChat=${KEEP_CHAT:-false}"
+      - "-ignoreThinking=${IGNORE_THINKING:-false}"
+      - "-charsLimit=${CHARS_LIMIT:-50000}"
+      # 只有当环境变量设置了值时，才添加对应的 flag
+      # 注意：需要启动 shell 来处理条件逻辑，或者依赖 Go 程序处理空字符串
+      # 为了简单起见，我们直接传递，Go 程序需要能正确处理空字符串参数（对于可选 flag 通常可以）
+      # 如果 TEXT_BEFORE_PROMPT 为空，则使用 Go 代码默认值。如果设置了，则传递。
+      ${TEXT_BEFORE_PROMPT:+-textBeforePrompt=} # Compose 不支持直接这样条件插入，需要包装或依赖 Go 处理空值
+      # 传递所有可能需要的参数，让 Go 程序处理
+      - "-textBeforePrompt=${TEXT_BEFORE_PROMPT}" # 如果环境变量为空，传递空字符串
+      - "-textAfterPrompt=${TEXT_AFTER_PROMPT}"   # 如果环境变量为空，传递空字符串
+      - "-httpProxy=${HTTP_PROXY}"             # 如果环境变量为空，传递空字符串
+      - "-cookieFile=${COOKIE_FILE_PATH}"      # 如果环境变量为空，传递空字符串
+
+    volumes:
+      # 如果你使用 cookie 文件，需要将本地文件挂载到容器中
+      # 示例：将项目目录下的 cookies.txt 挂载到容器的 /app/cookies.txt
+      # 需要在 .env 文件中设置 COOKIE_FILE_PATH=/app/cookies.txt
+      # - ./cookies.txt:/app/cookies.txt:ro # :ro 表示只读挂载
+
+    restart: unless-stopped # 容器退出时自动重启，除非手动停止
+    # (可选) 定义 .env 文件来管理敏感信息和配置
+    env_file:
+      - .env
